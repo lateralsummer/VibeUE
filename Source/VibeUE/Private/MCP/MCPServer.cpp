@@ -1459,11 +1459,15 @@ void FMCPServer::ExportToolManifest() const
     TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&JsonString);
     FJsonSerializer::Serialize(ToolsArray, Writer);
 
-    // Write to %APPDATA%/VibeUE/tools-manifest.json
+    // Write to %APPDATA%/VibeUE/tools-manifest.json (Windows) or ~/VibeUE/ (Mac/Linux)
     FString AppData = FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"));
     if (AppData.IsEmpty())
     {
-        UE_LOG(LogMCPServer, Warning, TEXT("ExportToolManifest: APPDATA env var not set, skipping export"));
+        AppData = FPlatformMisc::GetEnvironmentVariable(TEXT("HOME"));
+    }
+    if (AppData.IsEmpty())
+    {
+        UE_LOG(LogMCPServer, Warning, TEXT("ExportToolManifest: Neither APPDATA nor HOME env var set, skipping export"));
         return;
     }
 
