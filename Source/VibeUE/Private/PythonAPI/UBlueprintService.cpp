@@ -995,9 +995,12 @@ bool UBlueprintService::AddComponent(
 		if (ParentNode)
 		{
 			ParentNode->AddChildNode(NewNode);
-			// CRITICAL: Call SetParent to properly set ParentComponentOrVariableName
-			// AddChildNode only manages the ChildNodes array, it does NOT set the parent reference
-			NewNode->SetParent(ParentNode);
+			// RA-PATCH 2026-06-10: do NOT call SetParent() here. For a parent in
+			// the SAME Blueprint's SCS, AddChildNode is the complete operation.
+			// SetParent writes ParentComponentOrVariableName, which is reserved
+			// for parents inherited from a base class; setting it for SCS-local
+			// parents creates duplicated parentage that fires the engine ensure
+			// at SimpleConstructionScript.cpp:474 on every asset load.
 		}
 		else
 		{
@@ -1469,8 +1472,8 @@ bool UBlueprintService::SetRootComponent(
 		// Make the old root a child of the new root
 		SCS->RemoveNode(CurrentRootNode);
 		NewRootNode->AddChildNode(CurrentRootNode);
-		// CRITICAL: Call SetParent to properly set ParentComponentOrVariableName
-		CurrentRootNode->SetParent(NewRootNode);
+		// RA-PATCH 2026-06-10: SetParent() removed — same-SCS parenting must not
+		// write ParentComponentOrVariableName (see AddComponent patch note).
 	}
 	
 	// Add new root as a root node
@@ -1482,8 +1485,8 @@ bool UBlueprintService::SetRootComponent(
 		if (Child && Child != NewRootNode && Child != CurrentRootNode)
 		{
 			NewRootNode->AddChildNode(Child);
-			// CRITICAL: Call SetParent to properly set ParentComponentOrVariableName
-			Child->SetParent(NewRootNode);
+			// RA-PATCH 2026-06-10: SetParent() removed — same-SCS parenting must
+			// not write ParentComponentOrVariableName (see AddComponent patch note).
 		}
 	}
 	
@@ -1695,10 +1698,11 @@ bool UBlueprintService::ReparentComponent(
 	
 	// Add to new parent
 	NewParent->AddChildNode(NodeToReparent);
-	
-	// CRITICAL: Call SetParent to properly set ParentComponentOrVariableName
-	// AddChildNode only manages the ChildNodes array, it does NOT set the parent reference
-	NodeToReparent->SetParent(NewParent);
+
+	// RA-PATCH 2026-06-10: SetParent() removed — NewParent is found in this
+	// same SCS, so AddChildNode is the complete operation. SetParent would
+	// write ParentComponentOrVariableName (inherited-parents-only field) and
+	// recreate the duplicated-parentage ensure (SimpleConstructionScript.cpp:474).
 	
 	// Mark blueprint as modified
 	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
